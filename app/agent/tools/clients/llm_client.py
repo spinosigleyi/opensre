@@ -13,7 +13,16 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from anthropic import Anthropic, AuthenticationError
+from anthropic import (
+    Anthropic,
+    AuthenticationError,
+)
+from anthropic import APIConnectionError as AnthropicAPIConnectionError
+from anthropic import APIStatusError as AnthropicAPIStatusError
+from anthropic import APITimeoutError as AnthropicAPITimeoutError
+from openai import APIConnectionError as OpenAIAPIConnectionError
+from openai import APIStatusError as OpenAIAPIStatusError
+from openai import APITimeoutError as OpenAIAPITimeoutError
 from openai import AuthenticationError as OpenAIAuthError
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
@@ -32,6 +41,11 @@ _VALID_ROOT_CAUSE_CATEGORIES = frozenset({
     "infrastructure",
     "unknown",
 })
+
+_INITIAL_RETRY_DELAY_SECONDS = 2.0
+_MAX_RETRY_DELAY_SECONDS = 20.0
+_ANTHROPIC_MAX_ATTEMPTS = 6
+_OPENAI_MAX_ATTEMPTS = 6
 
 
 @dataclass(frozen=True)
@@ -89,10 +103,9 @@ class LLMClient:
         if self._temperature is not None:
             kwargs["temperature"] = self._temperature
 
-        backoff_seconds = 1.0
-        max_attempts = 3
+        backoff_seconds = _INITIAL_RETRY_DELAY_SECONDS
         last_err: Exception | None = None
-        for attempt in range(max_attempts):
+        for attempt in range(_ANTHROPIC_MAX_ATTEMPTS):
             try:
                 response = self._client.messages.create(**kwargs)
                 break
@@ -100,15 +113,21 @@ class LLMClient:
                 raise RuntimeError(
                     "Anthropic authentication failed. Check ANTHROPIC_API_KEY in your environment or .env."
                 ) from err
-            except Exception as err:
+            except (
+                AnthropicAPIConnectionError,
+                AnthropicAPITimeoutError,
+                AnthropicAPIStatusError,
+            ) as err:
                 last_err = err
-                if attempt == max_attempts - 1:
+                if not _is_retryable_anthropic_error(err):
+                    raise
+                if attempt == _ANTHROPIC_MAX_ATTEMPTS - 1:
                     raise RuntimeError(
                         "Anthropic API is overloaded (HTTP 529) after multiple retries. "
                         "Try again in a few seconds."
                     ) from err
                 time.sleep(backoff_seconds)
-                backoff_seconds *= 2
+                backoff_seconds = min(backoff_seconds * 2, _MAX_RETRY_DELAY_SECONDS)
         else:
             raise RuntimeError("LLM invocation failed without a concrete error") from last_err
 
@@ -161,10 +180,9 @@ class OpenAILLMClient:
         if self._temperature is not None:
             kwargs["temperature"] = self._temperature
 
-        backoff_seconds = 1.0
-        max_attempts = 3
+        backoff_seconds = _INITIAL_RETRY_DELAY_SECONDS
         last_err: Exception | None = None
-        for attempt in range(max_attempts):
+        for attempt in range(_OPENAI_MAX_ATTEMPTS):
             try:
                 response = self._client.chat.completions.create(**kwargs)
                 break
@@ -172,14 +190,20 @@ class OpenAILLMClient:
                 raise RuntimeError(
                     "OpenAI authentication failed. Check OPENAI_API_KEY in your environment or .env."
                 ) from err
-            except Exception as err:
+            except (
+                OpenAIAPIConnectionError,
+                OpenAIAPITimeoutError,
+                OpenAIAPIStatusError,
+            ) as err:
                 last_err = err
-                if attempt == max_attempts - 1:
+                if not _is_retryable_openai_error(err):
+                    raise
+                if attempt == _OPENAI_MAX_ATTEMPTS - 1:
                     raise RuntimeError(
                         "OpenAI API request failed after multiple retries. Try again in a few seconds."
                     ) from err
                 time.sleep(backoff_seconds)
-                backoff_seconds *= 2
+                backoff_seconds = min(backoff_seconds * 2, _MAX_RETRY_DELAY_SECONDS)
         else:
             raise RuntimeError("LLM invocation failed without a concrete error") from last_err
 
@@ -256,6 +280,22 @@ def _extract_text(response: Any) -> str:
             parts.append(block.text)
     text = "".join(parts).strip()
     return text or str(response)
+
+
+def _is_retryable_anthropic_error(err: Exception) -> bool:
+    if isinstance(err, (AnthropicAPIConnectionError, AnthropicAPITimeoutError)):
+        return True
+    if isinstance(err, AnthropicAPIStatusError):
+        return err.status_code in {408, 409, 429, 500, 502, 503, 504, 529}
+    return False
+
+
+def _is_retryable_openai_error(err: Exception) -> bool:
+    if isinstance(err, (OpenAIAPIConnectionError, OpenAIAPITimeoutError)):
+        return True
+    if isinstance(err, OpenAIAPIStatusError):
+        return err.status_code in {408, 409, 429, 500, 502, 503, 504}
+    return False
 
 
 def _safe_json_loads(payload: str) -> Any:
