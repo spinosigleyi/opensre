@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
 # Substrings of normalized paths for vendored bundles checked into tests/e2e.
+# Include variants without leading slash — SARIF URIs are often repo-relative.
 _VENDORED_MARKERS: tuple[str, ...] = (
     "tests/e2e/upstream_lambda/pipeline_code/",
     "tests/e2e/upstream_apache_flink_ecs/pipeline_code/",
@@ -21,6 +23,11 @@ _VENDORED_MARKERS: tuple[str, ...] = (
     "/upstream_lambda/pipeline_code/",
     "/upstream_apache_flink_ecs/pipeline_code/",
     "/upstream_prefect_ecs_fargate/pipeline_code/",
+    "upstream_lambda/pipeline_code/",
+    "upstream_apache_flink_ecs/pipeline_code/",
+    "upstream_prefect_ecs_fargate/pipeline_code/",
+    # Unique to the Lambda fixture bundle (requests/urllib3 vendored under api_ingester).
+    "pipeline_code/api_ingester/",
 )
 
 
@@ -43,13 +50,21 @@ def _join_uri_base(uri: str, uri_base_id: str | None, bases: dict[str, str] | No
     return base + uri
 
 
+def _coerce_index(idx: object) -> int | None:
+    if isinstance(idx, int):
+        return idx
+    if isinstance(idx, str) and idx.isdigit():
+        return int(idx)
+    return None
+
+
 def _artifact_uri(
     art_loc: dict[str, Any],
     artifacts: list[dict[str, Any]] | None,
     original_uri_base_ids: dict[str, str] | None,
 ) -> str | None:
-    idx = art_loc.get("index")
-    if idx is not None and artifacts is not None and isinstance(idx, int) and 0 <= idx < len(artifacts):
+    idx = _coerce_index(art_loc.get("index"))
+    if idx is not None and artifacts is not None and 0 <= idx < len(artifacts):
         loc = artifacts[idx].get("location") or {}
         uri = loc.get("uri")
         if isinstance(uri, str):
@@ -59,6 +74,25 @@ def _artifact_uri(
         return None
     joined = _join_uri_base(uri, art_loc.get("uriBaseId"), original_uri_base_ids)
     return _normalize_path(joined)
+
+
+def _iter_artifact_locations_in_result(r: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    """Yield every artifactLocation under physicalLocation in a result (locations, codeFlows, etc.)."""
+
+    def _walk(o: Any) -> Iterator[dict[str, Any]]:
+        if isinstance(o, dict):
+            pl = o.get("physicalLocation")
+            if isinstance(pl, dict):
+                al = pl.get("artifactLocation")
+                if isinstance(al, dict):
+                    yield al
+            for v in o.values():
+                yield from _walk(v)
+        elif isinstance(o, list):
+            for item in o:
+                yield from _walk(item)
+
+    yield from _walk(r)
 
 
 def _is_vendored(path: str) -> bool:
@@ -82,20 +116,8 @@ def _filter_run(run: dict[str, Any]) -> None:
     for r in results:
         if not isinstance(r, dict):
             continue
-        locs = r.get("locations")
-        if not isinstance(locs, list) or not locs:
-            kept.append(r)
-            continue
         drop = False
-        for loc in locs:
-            if not isinstance(loc, dict):
-                continue
-            pl = loc.get("physicalLocation")
-            if not isinstance(pl, dict):
-                continue
-            art_loc = pl.get("artifactLocation")
-            if not isinstance(art_loc, dict):
-                continue
+        for art_loc in _iter_artifact_locations_in_result(r):
             path = _artifact_uri(art_loc, artifacts, base_ids)
             if path is not None and _is_vendored(path):
                 drop = True
