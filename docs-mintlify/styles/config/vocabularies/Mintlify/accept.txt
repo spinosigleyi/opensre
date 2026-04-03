@@ -33,7 +33,6 @@ gzipped
 Heatmap
 hotspots
 materializations
-Mintlify
 namespace
 namespaces
 Nextflow
