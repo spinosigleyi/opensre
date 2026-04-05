@@ -28,6 +28,7 @@ EvidenceSource = Literal[
     "vercel",
     "opsgenie",
     "elasticsearch",
+    "prefect",
 ]
 AgentMode = Literal["chat", "investigation"]
 
