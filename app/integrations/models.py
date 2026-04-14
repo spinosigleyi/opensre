@@ -389,18 +389,18 @@ class DiscordBotConfig(StrictConfigModel):
     public_key: str = ""      # For signature verification (required for inbound only)
     default_channel_id: str | None = None  # Fallback for CLI-triggered findings
 
-    @field_validator("bot_token")
+    @field_validator("bot_token", mode="before")
     @classmethod
-    def _validate_bot_token(cls, v: str) -> str:
-        stripped = v.strip()
+    def _validate_bot_token(cls, v: object) -> str:
+        stripped = str(v or "").strip()
         if not stripped:
             raise ValueError("bot_token cannot be empty or just whitespace")
         return stripped
 
-    @field_validator("public_key")
+    @field_validator("public_key", mode="before")
     @classmethod
-    def _validate_public_key(cls, v: str) -> str:
-        stripped = v.strip()
+    def _validate_public_key(cls, v: object) -> str:
+        stripped = str(v or "").strip()
         if not stripped:
             return stripped  # optional — only needed for inbound interactions endpoint
         if not re.fullmatch(r"[0-9a-fA-F]+", stripped):
