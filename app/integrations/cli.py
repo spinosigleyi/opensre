@@ -41,20 +41,22 @@ def _json_echo(data: Any) -> None:
     print(json.dumps(data, indent=2, default=str))
 
 
-_SECRET_KEYS = frozenset({
-    "api_token",
-    "api_key",
-    "api_private_key",
-    "app_key",
-    "bot_token",
-    "password",
-    "secret_access_key",
-    "session_token",
-    "jwt_token",
-    "webhook_url",
-    "auth_token",
-    "connection_string",
-})
+_SECRET_KEYS = frozenset(
+    {
+        "api_token",
+        "api_key",
+        "api_private_key",
+        "app_key",
+        "bot_token",
+        "password",
+        "secret_access_key",
+        "session_token",
+        "jwt_token",
+        "webhook_url",
+        "auth_token",
+        "connection_string",
+    }
+)
 
 
 def _p(label: str, default: str = "", secret: bool = False) -> str:
@@ -290,17 +292,13 @@ def _setup_github() -> None:
     credentials["toolsets"] = [part.strip() for part in toolsets.split(",") if part.strip()]
     upsert_integration("github", {"credentials": credentials})
 
+
 def _setup_gitlab() -> None:
     base_url = _p("Gitlab base URL", default=DEFAULT_GITLAB_BASE_URL)
     auth_token = _p("Gitlab access token", secret=True)
     upsert_integration(
         "gitlab",
-        {
-            "credentials": {
-                "base_url": base_url,
-                "auth_token": auth_token
-            }
-        },
+        {"credentials": {"base_url": base_url, "auth_token": auth_token}},
     )
 
 
@@ -356,6 +354,7 @@ def _setup_mongodb() -> None:
         },
     )
 
+
 def _register_discord_slash_command(application_id: str, bot_token: str) -> None:
     import httpx
 
@@ -364,7 +363,12 @@ def _register_discord_slash_command(application_id: str, bot_token: str) -> None
         "name": "investigate",
         "description": "Trigger an OpenSRE investigation",
         "options": [
-            {"name": "alert", "description": "Alert JSON or description", "type": 3, "required": True}
+            {
+                "name": "alert",
+                "description": "Alert JSON or description",
+                "type": 3,
+                "required": True,
+            }
         ],
     }
     resp = httpx.put(url, json=[payload], headers={"Authorization": f"Bot {bot_token}"}, timeout=10)
@@ -379,12 +383,17 @@ def _setup_discord() -> None:
     application_id = _p("Discord application ID")
     public_key = _p("Discord public key (from Developer Portal)")
     default_channel_id = _p("Default channel ID (optional)")
-    upsert_integration("discord", {"credentials": {
-        "bot_token": bot_token,
-        "application_id": application_id,
-        "public_key": public_key,
-        "default_channel_id": default_channel_id,
-    }})
+    upsert_integration(
+        "discord",
+        {
+            "credentials": {
+                "bot_token": bot_token,
+                "application_id": application_id,
+                "public_key": public_key,
+                "default_channel_id": default_channel_id,
+            }
+        },
+    )
     _register_discord_slash_command(application_id, bot_token)
 
 

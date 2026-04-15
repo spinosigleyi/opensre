@@ -248,16 +248,20 @@ def _map_coralogix_logs(data: dict) -> dict:
 
 def _map_diagnostic_code_result(data: dict, current_evidence: dict) -> dict:
     executions = list(current_evidence.get("diagnostic_executions", []))
-    executions.append({
-        "code": data.get("code", ""),
-        "inputs": data.get("inputs", {}),
-        "stdout": data.get("stdout", ""),
-        "stderr": data.get("stderr", ""),
-        "exit_code": data.get("exit_code"),
-        "timed_out": data.get("timed_out", False),
-        "success": data.get("success", False),
-    })
+    executions.append(
+        {
+            "code": data.get("code", ""),
+            "inputs": data.get("inputs", {}),
+            "stdout": data.get("stdout", ""),
+            "stderr": data.get("stderr", ""),
+            "exit_code": data.get("exit_code"),
+            "timed_out": data.get("timed_out", False),
+            "success": data.get("success", False),
+        }
+    )
     return {"diagnostic_executions": executions}
+
+
 def _map_vercel_deployment_status(data: dict) -> dict:
     return {
         "vercel_deployments": data.get("deployments", []),
@@ -533,9 +537,7 @@ def summarize_execution_results(
 
     # Only successes go into executed_hypotheses: planning filters out any name seen there,
     # so recording failures would block retries for transient errors on any tool.
-    successful_actions = [
-        name for name, result in execution_results.items() if result.success
-    ]
+    successful_actions = [name for name, result in execution_results.items() if result.success]
     if successful_actions:
         executed_hypotheses = track_hypothesis(
             executed_hypotheses,

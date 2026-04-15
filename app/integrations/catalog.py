@@ -62,6 +62,7 @@ _SERVICE_KEY_MAP = {
     "mysql": "mysql",
 }
 
+
 def classify_integrations(integrations: list[dict[str, Any]]) -> dict[str, Any]:
     """Classify active integrations by service into normalized runtime configs."""
     resolved: dict[str, Any] = {}
@@ -682,8 +683,7 @@ def load_env_integrations() -> list[dict[str, Any]]:
                 "bot_token": discord_bot_token,
                 "application_id": os.getenv("DISCORD_APPLICATION_ID", "").strip(),
                 "public_key": os.getenv("DISCORD_PUBLIC_KEY", "").strip(),
-                "default_channel_id": os.getenv("DISCORD_DEFAULT_CHANNEL_ID", "").strip()
-                or None,
+                "default_channel_id": os.getenv("DISCORD_DEFAULT_CHANNEL_ID", "").strip() or None,
             }
         )
         integrations.append(
@@ -732,9 +732,7 @@ def load_env_integrations() -> list[dict[str, Any]]:
                     "mode": openclaw_mode,
                     "command": openclaw_command,
                     "args": [
-                        part
-                        for part in os.getenv("OPENCLAW_MCP_ARGS", "").strip().split()
-                        if part
+                        part for part in os.getenv("OPENCLAW_MCP_ARGS", "").strip().split() if part
                     ],
                     "auth_token": os.getenv("OPENCLAW_MCP_AUTH_TOKEN", "").strip(),
                 }
@@ -761,8 +759,7 @@ def load_env_integrations() -> list[dict[str, Any]]:
                     "database": mariadb_database,
                     "username": os.getenv("MARIADB_USERNAME", "").strip(),
                     "password": os.getenv("MARIADB_PASSWORD", "").strip(),
-                    "ssl": os.getenv("MARIADB_SSL", "true").strip().lower()
-                    in ("true", "1", "yes"),
+                    "ssl": os.getenv("MARIADB_SSL", "true").strip().lower() in ("true", "1", "yes"),
                 }
             )
             integrations.append(
@@ -860,8 +857,12 @@ def resolve_effective_integrations(
     env_integrations: list[dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Resolve effective local integrations from ~/.tracer and environment variables."""
-    store_records = list(store_integrations) if store_integrations is not None else load_integrations()
-    env_records = list(env_integrations) if env_integrations is not None else load_env_integrations()
+    store_records = (
+        list(store_integrations) if store_integrations is not None else load_integrations()
+    )
+    env_records = (
+        list(env_integrations) if env_integrations is not None else load_env_integrations()
+    )
     merged_integrations = merge_local_integrations(store_records, env_records)
     classified_integrations = classify_integrations(merged_integrations)
     source_by_service, store_integration_by_service = _service_metadata(store_records, env_records)
@@ -948,7 +949,9 @@ def resolve_effective_integrations(
         effective["google_docs"] = _effective_entry(
             source_by_service.get("google_docs", "local env"),
             {
-                "credentials_file": str(google_docs_credentials.get("credentials_file", "")).strip(),
+                "credentials_file": str(
+                    google_docs_credentials.get("credentials_file", "")
+                ).strip(),
                 "folder_id": str(google_docs_credentials.get("folder_id", "")).strip(),
             },
         )
@@ -986,9 +989,7 @@ def resolve_effective_integrations(
                 "local env",
                 {
                     "bootstrap_servers": kafka_servers,
-                    "security_protocol": os.getenv(
-                        "KAFKA_SECURITY_PROTOCOL", "PLAINTEXT"
-                    ).strip(),
+                    "security_protocol": os.getenv("KAFKA_SECURITY_PROTOCOL", "PLAINTEXT").strip(),
                     "sasl_mechanism": os.getenv("KAFKA_SASL_MECHANISM", "").strip(),
                     "sasl_username": os.getenv("KAFKA_SASL_USERNAME", "").strip(),
                     "sasl_password": os.getenv("KAFKA_SASL_PASSWORD", "").strip(),
