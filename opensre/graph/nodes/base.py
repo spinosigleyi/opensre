@@ -54,6 +54,16 @@ class NodeContext:
         """
         self.params.update(overrides)
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize the context to a plain dict, useful for logging or debugging."""
+        return {
+            "run_id": self.run_id,
+            "params": self.params,
+            "results": self.results,
+            "errors": self.errors,
+            "metadata": self.metadata,
+        }
+
 
 class BaseNode(abc.ABC):
     """Abstract base class for all OpenSRE graph nodes.
@@ -85,13 +95,4 @@ class BaseNode(abc.ABC):
         """Extract and validate node-specific parameters from context.
 
         Override this method to perform parameter coercion or validation.
-        The default implementation returns a shallow copy of ctx.params.
-        """
-        return dict(ctx.params)
-
-    @abc.abstractmethod
-    def run(self, ctx: NodeContext) -> NodeContext:
-        """Execute the node logic and return the updated context.
-
-        Args:
-            ctx: The
+        The d
