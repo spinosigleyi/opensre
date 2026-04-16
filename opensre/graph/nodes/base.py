@@ -47,6 +47,13 @@ class NodeContext:
         """Clear all recorded errors. Useful when retrying a node after handling errors."""
         self.errors.clear()
 
+    def merge_params(self, overrides: Dict[str, Any]) -> None:
+        """Merge additional parameters into ctx.params, overwriting existing keys.
+
+        Handy for injecting runtime config without replacing the entire params dict.
+        """
+        self.params.update(overrides)
+
 
 class BaseNode(abc.ABC):
     """Abstract base class for all OpenSRE graph nodes.
@@ -87,10 +94,4 @@ class BaseNode(abc.ABC):
         """Execute the node logic and return the updated context.
 
         Args:
-            ctx: The current execution context shared across nodes.
-
-        Returns:
-            The mutated NodeContext after this node has completed.
-        """
-
-    def __re
+            ctx: The
