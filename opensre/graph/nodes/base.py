@@ -1,0 +1,93 @@
+"""Base node definition for the OpenSRE graph execution engine.
+
+All graph nodes must inherit from BaseNode and implement the required
+interface defined here. This ensures consistent behavior across the
+execution pipeline.
+"""
+
+from __future__ import annotations
+
+import abc
+import logging
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class NodeContext:
+    """Execution context passed between nodes in the graph."""
+
+    run_id: str
+    params: Dict[str, Any] = field(default_factory=dict)
+    results: Dict[str, Any] = field(default_factory=dict)
+    errors: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def set_result(self, key: str, value: Any) -> None:
+        """Store a result value under the given key."""
+        self.results[key] = value
+
+    def get_result(self, key: str, default: Any = None) -> Any:
+        """Retrieve a previously stored result."""
+        return self.results.get(key, default)
+
+    def add_error(self, message: str) -> None:
+        """Append an error message to the context error list."""
+        logger.error("[run_id=%s] Node error: %s", self.run_id, message)
+        self.errors.append(message)
+
+    @property
+    def has_errors(self) -> bool:
+        """Return True if any errors have been recorded."""
+        return len(self.errors) > 0
+
+
+class BaseNode(abc.ABC):
+    """Abstract base class for all OpenSRE graph nodes.
+
+    Subclasses must implement `node_id`, `is_available`, and `run`.
+    Optionally override `extract_params` to parse node-specific
+    parameters from the incoming context.
+    """
+
+    #: Unique identifier for this node type (snake_case).
+    node_id: str = ""
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        if not getattr(cls, "node_id", ""):
+            raise TypeError(
+                f"Node subclass '{cls.__name__}' must define a non-empty 'node_id'."
+            )
+
+    @abc.abstractmethod
+    def is_available(self) -> bool:
+        """Return True if this node can execute in the current environment.
+
+        Implementations should check for required credentials, reachable
+        services, or any other pre-conditions before execution.
+        """
+
+    def extract_params(self, ctx: NodeContext) -> Dict[str, Any]:
+        """Extract and validate node-specific parameters from context.
+
+        Override this method to perform parameter coercion or validation.
+        The default implementation returns a shallow copy of ctx.params.
+        """
+        return dict(ctx.params)
+
+    @abc.abstractmethod
+    def run(self, ctx: NodeContext) -> NodeContext:
+        """Execute the node logic and return the updated context.
+
+        Args:
+            ctx: The current execution context shared across nodes.
+
+        Returns:
+            The mutated NodeContext after this node has completed.
+        """
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<{self.__class__.__name__} node_id={self.node_id!r}>"
