@@ -43,6 +43,10 @@ class NodeContext:
         """Return True if any errors have been recorded."""
         return len(self.errors) > 0
 
+    def clear_errors(self) -> None:
+        """Clear all recorded errors. Useful when retrying a node after handling errors."""
+        self.errors.clear()
+
 
 class BaseNode(abc.ABC):
     """Abstract base class for all OpenSRE graph nodes.
@@ -89,5 +93,4 @@ class BaseNode(abc.ABC):
             The mutated NodeContext after this node has completed.
         """
 
-    def __repr__(self) -> str:  # pragma: no cover
-        return f"<{self.__class__.__name__} node_id={self.node_id!r}>"
+    def __re
