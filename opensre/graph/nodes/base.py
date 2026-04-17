@@ -84,14 +84,3 @@ class NodeContext:
         adding it here to avoid repetitive ctx.params.get(...) calls.
         """
         return self.params.get(key, default)
-
-
-class BaseNode(abc.ABC):
-    """Abstract base class for all OpenSRE graph nodes.
-
-    Subclasses must implement `node_id`, `is_available`, and `run`.
-    Optionally override `extract_params` to parse node-specific
-    parameters from the incoming context.
-    """
-
-    #: Unique identifier for this node type (
