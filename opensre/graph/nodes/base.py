@@ -78,7 +78,9 @@ class BaseNode(abc.ABC):
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
-        if not getattr(cls, "node_id", ""):
+        # Skip enforcement for intermediate abstract classes that don't yet
+        # define node_id (e.g. mixins or partial base classes).
+        if not abc.ABC in cls.__bases__ and not getattr(cls, "node_id", ""):
             raise TypeError(
                 f"Node subclass '{cls.__name__}' must define a non-empty 'node_id'."
             )
@@ -87,12 +89,4 @@ class BaseNode(abc.ABC):
     def is_available(self) -> bool:
         """Return True if this node can execute in the current environment.
 
-        Implementations should check for required credentials, reachable
-        services, or any other pre-conditions before execution.
-        """
-
-    def extract_params(self, ctx: NodeContext) -> Dict[str, Any]:
-        """Extract and validate node-specific parameters from context.
-
-        Override this method to perform parameter coercion or validation.
-        The d
+        Implementations should check fo
