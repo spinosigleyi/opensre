@@ -64,6 +64,19 @@ class NodeContext:
             "metadata": self.metadata,
         }
 
+    def snapshot(self) -> Dict[str, Any]:
+        """Return a shallow copy of the context as a dict.
+
+        Useful for capturing state at a point in time without mutating the original.
+        Personal note: handy when debugging multi-step pipelines locally.
+        """
+        d = self.to_dict()
+        d["params"] = dict(self.params)
+        d["results"] = dict(self.results)
+        d["errors"] = list(self.errors)
+        d["metadata"] = dict(self.metadata)
+        return d
+
 
 class BaseNode(abc.ABC):
     """Abstract base class for all OpenSRE graph nodes.
@@ -85,8 +98,4 @@ class BaseNode(abc.ABC):
                 f"Node subclass '{cls.__name__}' must define a non-empty 'node_id'."
             )
 
-    @abc.abstractmethod
-    def is_available(self) -> bool:
-        """Return True if this node can execute in the current environment.
-
-        Implementations should check fo
+   
