@@ -77,6 +77,14 @@ class NodeContext:
         d["metadata"] = dict(self.metadata)
         return d
 
+    def get_param(self, key: str, default: Any = None) -> Any:
+        """Convenience accessor for a single param value.
+
+        Personal note: I kept reaching for this pattern in subclasses, so
+        adding it here to avoid repetitive ctx.params.get(...) calls.
+        """
+        return self.params.get(key, default)
+
 
 class BaseNode(abc.ABC):
     """Abstract base class for all OpenSRE graph nodes.
@@ -86,16 +94,4 @@ class BaseNode(abc.ABC):
     parameters from the incoming context.
     """
 
-    #: Unique identifier for this node type (snake_case).
-    node_id: str = ""
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        # Skip enforcement for intermediate abstract classes that don't yet
-        # define node_id (e.g. mixins or partial base classes).
-        if not abc.ABC in cls.__bases__ and not getattr(cls, "node_id", ""):
-            raise TypeError(
-                f"Node subclass '{cls.__name__}' must define a non-empty 'node_id'."
-            )
-
-   
+    #: Unique identifier for this node type (
