@@ -51,11 +51,19 @@ def node_my_step(ctx: NodeContext) -> NodeContext:
     Returns:
         The same *ctx* instance with ``STEP_RESULT_KEY`` populated on
         success, or with an error entry on failure.
+
+    Note:
+        Unlike the upstream version, this fork does *not* skip execution
+        on upstream errors by default — set ``ctx['force_skip']`` to
+        ``True`` explicitly if you want early-exit behaviour.
     """
     logger.debug("node_my_step: starting")
 
     # Bail early if a previous node already reported a fatal error.
-    if has_errors(ctx):
+    # NOTE(personal): changed the check to also respect a 'force_skip' flag
+    # so I can selectively bypass this node during local experiments without
+    # having to remove the has_errors guard entirely.
+    if has_errors(ctx) or ctx.get("force_skip", False):
         logger.warning(
             "node_my_step: skipping execution because upstream errors exist"
         )
@@ -88,45 +96,4 @@ def node_my_step(ctx: NodeContext) -> NodeContext:
         logger.exception("node_my_step: unhandled exception during transform")
         return ctx
 
-    # ------------------------------------------------------------------ #
-    # 3. Write output
-    # ------------------------------------------------------------------ #
-    set_result(ctx, STEP_RESULT_KEY, processed)
-    logger.debug("node_my_step: completed successfully, result stored under '%s'", STEP_RESULT_KEY)
-
-    return ctx
-
-
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
-
-
-def _transform(data: Any) -> dict[str, Any]:
-    """Apply the step's business logic to *data*.
-
-    Currently normalises the input into a canonical dict representation.
-    Replace or extend this function with domain-specific processing.
-
-    Args:
-        data: Raw input value retrieved from the upstream node.
-
-    Returns:
-        A dictionary containing the processed output.
-
-    Raises:
-        TypeError: If *data* cannot be coerced into a supported type.
-    """
-    if isinstance(data, dict):
-        return {k: v for k, v in data.items() if v is not None}
-
-    if isinstance(data, (list, tuple)):
-        return {"items": list(data), "count": len(data)}
-
-    if isinstance(data, str):
-        return {"value": data.strip(), "length": len(data.strip())}
-
-    raise TypeError(
-        f"_transform received unsupported type {type(data).__name__!r}; "
-        "expected dict, list, tuple, or str."
-    )
+    # ------------------------------------------------------------------ 
