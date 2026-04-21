@@ -56,6 +56,11 @@ def node_my_step(ctx: NodeContext) -> NodeContext:
         Unlike the upstream version, this fork does *not* skip execution
         on upstream errors by default — set ``ctx['force_skip']`` to
         ``True`` explicitly if you want early-exit behaviour.
+
+        Also supports ``ctx['strict_input']`` (default: ``False``). When
+        set to ``True``, a missing ``INPUT_KEY`` is treated as a hard
+        error rather than silently skipped. Useful when debugging pipelines
+        where a missing input is always a bug.
     """
     logger.debug("node_my_step: starting")
 
@@ -78,14 +83,11 @@ def node_my_step(ctx: NodeContext) -> NodeContext:
     # ------------------------------------------------------------------ #
     raw_input: Any = get_result(ctx, INPUT_KEY)
     if raw_input is None:
+        # NOTE(personal): added strict_input mode — when I'm actively developing
+        # a pipeline I almost always want a missing input to blow up loudly
+        # rather than silently produce an empty result downstream.
+        if ctx.get("strict_input", False):
+            logger.error("node_my_step: missing required input '%s' (strict_input=True)", INPUT_KEY)
         add_error(
             ctx,
             node="my_step",
-            message=f"Required input '{INPUT_KEY}' is missing from context.",
-        )
-        logger.error("node_my_step: missing input key '%s'", INPUT_KEY)
-        return ctx
-
-    # ------------------------------------------------------------------ #
-    # 2. Core transformation logic
-    # ----------
