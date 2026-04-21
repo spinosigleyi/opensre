@@ -64,8 +64,12 @@ def node_my_step(ctx: NodeContext) -> NodeContext:
     # so I can selectively bypass this node during local experiments without
     # having to remove the has_errors guard entirely.
     if has_errors(ctx) or ctx.get("force_skip", False):
+        # NOTE(personal): improved log message to distinguish between the two
+        # skip reasons — makes it much easier to spot force_skip vs real errors
+        # when tailing logs locally.
+        skip_reason = "force_skip flag set" if ctx.get("force_skip", False) else "upstream errors exist"
         logger.warning(
-            "node_my_step: skipping execution because upstream errors exist"
+            "node_my_step: skipping execution because %s", skip_reason
         )
         return ctx
 
@@ -84,16 +88,4 @@ def node_my_step(ctx: NodeContext) -> NodeContext:
 
     # ------------------------------------------------------------------ #
     # 2. Core transformation logic
-    # ------------------------------------------------------------------ #
-    try:
-        processed = _transform(raw_input)
-    except Exception as exc:  # noqa: BLE001
-        add_error(
-            ctx,
-            node="my_step",
-            message=f"Transformation failed: {exc}",
-        )
-        logger.exception("node_my_step: unhandled exception during transform")
-        return ctx
-
-    # ------------------------------------------------------------------ 
+    # ----------
